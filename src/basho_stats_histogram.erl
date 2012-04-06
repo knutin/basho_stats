@@ -26,7 +26,10 @@
          quantile/2,
          counts/1,
          observations/1,
-         summary_stats/1]).
+         summary_stats/1,
+         merge/2]).
+
+-export([to_struct/1, from_struct/1]).
 
 -ifdef(EQC).
 -export([prop_count/0, prop_quantile/0]).
@@ -67,12 +70,12 @@ new(MinVal, MaxVal, NumBins) ->
 %%
 update(Value, Hist) ->
     Bin = which_bin(Value, Hist),
-    case gb_trees:lookup(Bin, Hist#hist.bins) of
-        {value, Counter} ->
-            ok;
-        none ->
-            Counter = 0
-    end,
+    Counter = case gb_trees:lookup(Bin, Hist#hist.bins) of
+                  {value, C} ->
+                      C;
+                  none ->
+                      0
+              end,
     Hist#hist { n = Hist#hist.n + 1,
                 bins = gb_trees:enter(Bin, Counter + 1, Hist#hist.bins),
                 stats = basho_stats_sample:update(Value, Hist#hist.stats)}.
@@ -81,7 +84,53 @@ update(Value, Hist) ->
 update_all(Values, Hist) ->
     lists:foldl(fun(Value, H) -> update(Value, H) end,
                 Hist, Values).
-    
+
+
+%%
+%% Serialize to json structs, extract the raw bins and the configuration
+%%
+
+to_struct(Hist) ->
+    {[{n, Hist#hist.n},
+      {min, Hist#hist.min}, {max, Hist#hist.max},
+      {num_bins, Hist#hist.capacity}, {bins, {gb_trees:to_list(Hist#hist.bins)}},
+      {stats, basho_stats_sample:to_struct(Hist#hist.stats)}
+     ]}.
+
+from_struct({Serialized}) ->
+    {n, N} = lists:keyfind(n, 1, Serialized),
+    {min, MinVal} = lists:keyfind(min, 1, Serialized),
+    {max, MaxVal} = lists:keyfind(max, 1, Serialized),
+    {num_bins, NumBins} = lists:keyfind(num_bins, 1, Serialized),
+    {bins, {Bins}} = lists:keyfind(bins, 1, Serialized),
+    {stats, Stats} = lists:keyfind(stats, 1, Serialized),
+
+    #hist { n = N,
+            min = MinVal,
+            max = MaxVal,
+            bin_scale = NumBins / (MaxVal - MinVal),
+            bin_step = (MaxVal - MinVal) / NumBins,
+            bins = gb_trees:from_orddict(Bins),
+            capacity = NumBins,
+            stats = basho_stats_sample:from_struct(Stats) }.
+
+
+%%
+%% Merge
+%%
+
+merge(Left, Right) ->
+    %% TODO: Check equal configuration
+
+    %% Update left with all values from right
+    lists:foldl(fun ({Bin, Count}, Hist) ->
+                        Value = Hist#hist.min + (Bin / Hist#hist.bin_scale) + 1,
+                        NewBins = gb_trees:enter(Bin, Count + bin_count(Bin, Hist), Hist#hist.bins),
+                        NewStats = basho_stats_sample:update_with_freq(Value, Count, Hist#hist.stats),
+                        Hist#hist{n = Hist#hist.n + Count,
+                                  bins = NewBins,
+                                  stats = NewStats}
+                end, Left, gb_trees:to_list(Right#hist.bins)).
 
 
 %%
@@ -147,7 +196,7 @@ which_bin(Value, Hist) ->
             Bin
     end.
 
-            
+
 quantile_itr(none, _Samples, _MaxSamples) ->
     max;
 quantile_itr({Bin, Counter, Itr2}, Samples, MaxSamples) ->
@@ -171,7 +220,7 @@ bin_count(Bin, Hist) ->
          none ->
             0
     end.
-            
+
 %% ===================================================================
 %% Unit Tests
 %% ===================================================================
@@ -181,6 +230,31 @@ bin_count(Bin, Hist) ->
 simple_test() ->
     %% Pre-calculated tests
     [7,0] = counts(update_all([10,10,10,10,10,10,14], new(10,18,2))).
+
+
+merge_test() ->
+    Left = Right = update_all([10, 12, 14], new(0, 20, 20)),
+    Merged = merge(Left, Right),
+    Expected = update_all([10, 10, 12, 12, 14, 14], new(0, 20, 20)),
+
+    ?assertEqual(Merged#hist.n, Expected#hist.n),
+    ?assertEqual(Merged#hist.bins, Expected#hist.bins),
+
+    ?assertEqual(trunc(basho_stats_sample:mean(Expected#hist.stats)),
+                 trunc(basho_stats_sample:mean(Merged#hist.stats))),
+
+    ?assertEqual(trunc(basho_stats_sample:max(Expected#hist.stats)),
+                 trunc(basho_stats_sample:max(Merged#hist.stats))),
+
+    ?assertEqual(trunc(basho_stats_sample:sdev(Expected#hist.stats)),
+                 trunc(basho_stats_sample:sdev(Merged#hist.stats))).
+
+
+
+serialize_test() ->
+    Hist = update_all([12, 12, 10, 10, 14, 14], new(0, 20, 20)),
+    ?assertEqual(Hist, from_struct(to_struct(Hist))).
+
 
 -ifdef(EQC).
 
@@ -264,4 +338,4 @@ qc_quantile_test() ->
     true = eqc:quickcheck(prop_quantile()).
 
 -endif.
--endif. 
+-endif.

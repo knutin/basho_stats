@@ -23,10 +23,13 @@
 
 -export([new/0,
          update/2, update_all/2,
+         update_with_freq/3, update_all_with_freq/2,
          count/1,
          min/1, mean/1, max/1,
          variance/1, sdev/1,
          summary/1]).
+
+-export([to_struct/1, from_struct/1]).
 
 -include("stats.hrl").
 
@@ -47,7 +50,7 @@
 
 new() ->
     #state{}.
-    
+
 update(Value, State) ->
     State#state {
       n   = State#state.n + 1,
@@ -57,9 +60,45 @@ update(Value, State) ->
       sum2= State#state.sum2 + (Value * Value)}.
 
 
+update_with_freq(Value, Count, State) ->
+    State#state {
+      n   = State#state.n + Count,
+      min = nan_min(Value, State#state.min),
+      max = nan_max(Value, State#state.max),
+      sum = State#state.sum + (Value * Count),
+      sum2 = State#state.sum2 + ((Value * Value) * Count)}.
+
 update_all(Values, State) ->
     lists:foldl(fun(Value, S) -> update(Value, S) end,
                         State, Values).
+
+update_all_with_freq(Frequencies, State) ->
+    lists:foldl(fun ({Value, Count}, S) -> update_with_freq(Value, Count, S) end,
+                State, Frequencies).
+
+
+to_struct(State) ->
+    {[{n, State#state.n},
+      {min, State#state.min},
+      {max, State#state.max},
+      {sum, State#state.sum},
+      {sum2, State#state.sum2}
+     ]}.
+
+from_struct({S}) ->
+    %% TODO: Handle 'NaN'
+    {n, N} = lists:keyfind(n, 1, S),
+    {min, Min} = lists:keyfind(min, 1, S),
+    {max, Max} = lists:keyfind(max, 1, S),
+    {sum, Sum} = lists:keyfind(sum, 1, S),
+    {sum2, Sum2} = lists:keyfind(sum2, 1, S),
+
+    #state{n = N,
+           min = Min,
+           max = Max,
+           sum = Sum,
+           sum2 = Sum2}.
+
 
 count(State) ->
     State#state.n.
@@ -92,7 +131,7 @@ sdev(State) ->
 
 summary(State) ->
     {min(State), mean(State), max(State), variance(State), sdev(State)}.
-            
+
 
 %% ===================================================================
 %% Internal functions
@@ -105,7 +144,7 @@ nan_min(V1, V2)    -> erlang:min(V1, V2).
 nan_max(V1, 'NaN') -> V1;
 nan_max('NaN', V1) -> V1;
 nan_max(V1, V2)    -> erlang:max(V1, V2).
-    
+
 
 %% ===================================================================
 %% Unit Tests
@@ -114,12 +153,16 @@ nan_max(V1, V2)    -> erlang:max(V1, V2).
 -ifdef(EUNIT).
 
 simple_test() ->
-    %% A few hand-checked values 
+    %% A few hand-checked values
     {1,3.0,5,2.5,1.5811388300841898} = summary(update_all([1,2,3,4,5], new())),
     {1,5.5,10,15.0,3.872983346207417} = summary(update_all(lists:seq(1,10,3), new())).
 
 empty_test() ->
     {'NaN','NaN','NaN','NaN','NaN'} = summary(new()).
+
+update_with_freq_test() ->
+    ?assertEqual(update_all([1, 1, 2, 2, 3, 3], new()),
+                 update_all_with_freq([{1, 2}, {2, 2}, {3, 2}], new())).
 
 
 -ifdef(EQC).
