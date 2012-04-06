@@ -91,28 +91,45 @@ update_all(Values, Hist) ->
 %%
 
 to_struct(Hist) ->
-    {[{n, Hist#hist.n},
-      {min, Hist#hist.min}, {max, Hist#hist.max},
-      {num_bins, Hist#hist.capacity}, {bins, {gb_trees:to_list(Hist#hist.bins)}},
-      {stats, basho_stats_sample:to_struct(Hist#hist.stats)}
+    {[{<<"n">>, Hist#hist.n},
+      {<<"min">>, Hist#hist.min}, {<<"max">>, Hist#hist.max},
+      {<<"num_bins">>, Hist#hist.capacity},
+      {<<"bins">>, bins_to_struct(Hist#hist.bins)},
+      {<<"stats">>, basho_stats_sample:to_struct(Hist#hist.stats)}
      ]}.
 
+bins_to_struct(Bins) ->
+    {lists:map(fun ({K, V}) ->
+                       {[{<<"key">>, K},
+                         {<<"value">>, V}]}
+               end, gb_trees:to_list(Bins))}.
+
+
+
 from_struct({Serialized}) ->
-    {n, N} = lists:keyfind(n, 1, Serialized),
-    {min, MinVal} = lists:keyfind(min, 1, Serialized),
-    {max, MaxVal} = lists:keyfind(max, 1, Serialized),
-    {num_bins, NumBins} = lists:keyfind(num_bins, 1, Serialized),
-    {bins, {Bins}} = lists:keyfind(bins, 1, Serialized),
-    {stats, Stats} = lists:keyfind(stats, 1, Serialized),
+    {<<"n">>, N} = lists:keyfind(<<"n">>, 1, Serialized),
+    {<<"min">>, MinVal} = lists:keyfind(<<"min">>, 1, Serialized),
+    {<<"max">>, MaxVal} = lists:keyfind(<<"max">>, 1, Serialized),
+    {<<"num_bins">>, NumBins} = lists:keyfind(<<"num_bins">>, 1, Serialized),
+    {<<"bins">>, Bins} = lists:keyfind(<<"bins">>, 1, Serialized),
+    {<<"stats">>, Stats} = lists:keyfind(<<"stats">>, 1, Serialized),
 
     #hist { n = N,
             min = MinVal,
             max = MaxVal,
             bin_scale = NumBins / (MaxVal - MinVal),
             bin_step = (MaxVal - MinVal) / NumBins,
-            bins = gb_trees:from_orddict(Bins),
+            bins = bins_from_struct(Bins),
             capacity = NumBins,
             stats = basho_stats_sample:from_struct(Stats) }.
+
+bins_from_struct({KV}) ->
+    gb_trees:from_orddict(
+      lists:map(fun ({S}) ->
+                        {<<"key">>, K} = lists:keyfind(<<"key">>, 1, S),
+                        {<<"value">>, V} = lists:keyfind(<<"value">>, 1, S),
+                        {K, V}
+                end, KV)).
 
 
 %%

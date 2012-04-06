@@ -78,20 +78,20 @@ update_all_with_freq(Frequencies, State) ->
 
 
 to_struct(State) ->
-    {[{n, State#state.n},
-      {min, State#state.min},
-      {max, State#state.max},
-      {sum, State#state.sum},
-      {sum2, State#state.sum2}
+    {[{<<"n">>, State#state.n},
+      {<<"min">>, State#state.min},
+      {<<"max">>, State#state.max},
+      {<<"sum">>, State#state.sum},
+      {<<"sum2">>, State#state.sum2}
      ]}.
 
 from_struct({S}) ->
     %% TODO: Handle 'NaN'
-    {n, N} = lists:keyfind(n, 1, S),
-    {min, Min} = lists:keyfind(min, 1, S),
-    {max, Max} = lists:keyfind(max, 1, S),
-    {sum, Sum} = lists:keyfind(sum, 1, S),
-    {sum2, Sum2} = lists:keyfind(sum2, 1, S),
+    {<<"n">>, N} = lists:keyfind(<<"n">>, 1, S),
+    {<<"min">>, Min} = lists:keyfind(<<"min">>, 1, S),
+    {<<"max">>, Max} = lists:keyfind(<<"max">>, 1, S),
+    {<<"sum">>, Sum} = lists:keyfind(<<"sum">>, 1, S),
+    {<<"sum2">>, Sum2} = lists:keyfind(<<"sum2">>, 1, S),
 
     #state{n = N,
            min = Min,
