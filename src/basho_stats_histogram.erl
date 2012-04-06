@@ -99,10 +99,10 @@ to_struct(Hist) ->
      ]}.
 
 bins_to_struct(Bins) ->
-    {lists:map(fun ({K, V}) ->
-                       {[{<<"key">>, K},
-                         {<<"value">>, V}]}
-               end, gb_trees:to_list(Bins))}.
+    lists:map(fun ({K, V}) ->
+                      {[{<<"key">>, K},
+                        {<<"value">>, V}]}
+              end, gb_trees:to_list(Bins)).
 
 
 
@@ -123,7 +123,7 @@ from_struct({Serialized}) ->
             capacity = NumBins,
             stats = basho_stats_sample:from_struct(Stats) }.
 
-bins_from_struct({KV}) ->
+bins_from_struct(KV) ->
     gb_trees:from_orddict(
       lists:map(fun ({S}) ->
                         {<<"key">>, K} = lists:keyfind(<<"key">>, 1, S),
