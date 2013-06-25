@@ -25,7 +25,7 @@
          update/2, update_all/2,
          update_with_freq/3, update_all_with_freq/2,
          count/1,
-         min/1, mean/1, max/1,
+         min/1, mean/1, max/1, sum/1,
          variance/1, sdev/1,
          summary/1]).
 
@@ -113,6 +113,9 @@ mean(State) ->
 
 max(State) ->
     State#state.max.
+
+sum(State) ->
+    State#state.sum.
 
 variance(#state { n = N }) when N < 2 ->
     'NaN';
