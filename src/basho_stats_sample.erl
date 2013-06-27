@@ -86,18 +86,21 @@ to_struct(State) ->
      ]}.
 
 from_struct({S}) ->
-    %% TODO: Handle 'NaN'
-    {<<"n">>, N} = lists:keyfind(<<"n">>, 1, S),
-    {<<"min">>, Min} = lists:keyfind(<<"min">>, 1, S),
-    {<<"max">>, Max} = lists:keyfind(<<"max">>, 1, S),
-    {<<"sum">>, Sum} = lists:keyfind(<<"sum">>, 1, S),
-    {<<"sum2">>, Sum2} = lists:keyfind(<<"sum2">>, 1, S),
+    N    = ensure_number(proplists:get_value(<<"n">>, S)),
+    Min  = ensure_number(proplists:get_value(<<"min">>, S)),
+    Max  = ensure_number(proplists:get_value(<<"max">>, S)),
+    Sum  = ensure_number(proplists:get_value(<<"sum">>, S)),
+    Sum2 = ensure_number(proplists:get_value(<<"sum2">>, S)),
 
-    #state{n = N,
-           min = Min,
-           max = Max,
-           sum = Sum,
+    #state{n    = N,
+           min  = Min,
+           max  = Max,
+           sum  = Sum,
            sum2 = Sum2}.
+
+ensure_number(<<"NaN">>) -> 'NaN';
+ensure_number(I) when is_integer(I) -> I;
+ensure_number(F) when is_float(F) -> F.
 
 
 count(State) ->
