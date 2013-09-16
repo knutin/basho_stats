@@ -30,6 +30,7 @@
          summary/1]).
 
 -export([to_struct/1, from_struct/1]).
+-export([merge/2]).
 
 -include("stats.hrl").
 
@@ -97,6 +98,13 @@ from_struct({S}) ->
            max  = Max,
            sum  = Sum,
            sum2 = Sum2}.
+
+merge(#state{} = A, #state{} = B) ->
+    #state{n = A#state.n + B#state.n,
+           min = nan_min(A#state.min, B#state.min),
+           max = nan_max(A#state.max, B#state.max),
+           sum = A#state.sum + B#state.sum,
+           sum2 = A#state.sum2 + B#state.sum2}.
 
 ensure_number(<<"NaN">>) -> 'NaN';
 ensure_number(I) when is_integer(I) -> I;
@@ -170,8 +178,22 @@ update_with_freq_test() ->
     ?assertEqual(update_all([1, 1, 2, 2, 3, 3], new()),
                  update_all_with_freq([{1, 2}, {2, 2}, {3, 2}], new())).
 
+merge_test() ->
+    %% Some random data, should be turned into a property test really...
+    PointsA = [random:uniform() * 1000 || _ <- lists:seq(1, 1000)],
+    PointsB = [random:uniform() * 4711 || _ <- lists:seq(1, 1000)],
 
--ifdef(EQC).
+    SampleA = lists:foldl(fun update/2, new(), PointsA),
+    SampleB = lists:foldl(fun update/2, new(), PointsB),
+
+    Expected = tuple_to_list(summary(lists:foldl(fun update/2, new(),
+                                                 PointsA ++ PointsB))),
+    Result = tuple_to_list(summary(merge(SampleA, SampleB))),
+    ?assert(lists_equal(Expected, Result)),
+
+    ?assertEqual(SampleA, merge(new(), SampleA)),
+    ?assertEqual(new(), merge(new(), new())).
+
 
 lists_equal([], []) ->
     true;
@@ -182,6 +204,8 @@ lists_equal([V1 | R1], [V2 | R2]) ->
         false ->
             false
     end.
+
+-ifdef(EQC).
 
 prop_main() ->
     ?FORALL(Xlen, choose(2, 100),
