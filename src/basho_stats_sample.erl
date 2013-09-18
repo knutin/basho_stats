@@ -30,7 +30,7 @@
          summary/1]).
 
 -export([to_struct/1, from_struct/1]).
--export([merge/2]).
+-export([merge/2, scale/2]).
 
 -include("stats.hrl").
 
@@ -105,6 +105,22 @@ merge(#state{} = A, #state{} = B) ->
            max = nan_max(A#state.max, B#state.max),
            sum = A#state.sum + B#state.sum,
            sum2 = A#state.sum2 + B#state.sum2}.
+
+
+scale(#state{min = 'NaN', max = 'NaN'} = S, Scale) ->
+    (scale(S#state{min = 0, max = 0}, Scale))#state{min = 'NaN', max = 'NaN'};
+
+scale(#state{min = 'NaN'} = S, Scale) ->
+    (scale(S#state{min = 0}, Scale))#state{min = 'NaN'};
+
+scale(#state{max = 'NaN'} = S, Scale) ->
+    (scale(S#state{max = 0}, Scale))#state{max = 'NaN'};
+
+scale(#state{} = S, Scale) ->
+    S#state{min = S#state.min * Scale,
+            max = S#state.max * Scale,
+            sum = S#state.sum * Scale,
+            sum2 = S#state.sum2 * (Scale*Scale)}.
 
 ensure_number(<<"NaN">>) -> 'NaN';
 ensure_number(I) when is_integer(I) -> I;
@@ -194,6 +210,14 @@ merge_test() ->
     ?assertEqual(SampleA, merge(new(), SampleA)),
     ?assertEqual(new(), merge(new(), new())).
 
+scale_test() ->
+    Points = [random:uniform() * 1000 || _ <- lists:seq(1, 1000)],
+    Alpha = 0.42,
+    Scaled = [Alpha * X || X <- Points],
+    Sample = lists:foldl(fun update/2, new(), Points),
+    Expected = tuple_to_list(summary(lists:foldl(fun update/2, new(), Scaled))),
+    Result = tuple_to_list(summary(scale(Sample, Alpha))),
+    ?assert(lists_equal(Expected, Result)).
 
 lists_equal([], []) ->
     true;
