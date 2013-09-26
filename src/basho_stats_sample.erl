@@ -107,16 +107,16 @@ merge(#state{} = A, #state{} = B) ->
            sum2 = A#state.sum2 + B#state.sum2}.
 
 
-scale(#state{min = 'NaN', max = 'NaN'} = S, Scale) ->
+scale(Scale, #state{min = 'NaN', max = 'NaN'} = S) ->
     (scale(S#state{min = 0, max = 0}, Scale))#state{min = 'NaN', max = 'NaN'};
 
-scale(#state{min = 'NaN'} = S, Scale) ->
+scale(Scale, #state{min = 'NaN'} = S) ->
     (scale(S#state{min = 0}, Scale))#state{min = 'NaN'};
 
-scale(#state{max = 'NaN'} = S, Scale) ->
+scale(Scale, #state{max = 'NaN'} = S) ->
     (scale(S#state{max = 0}, Scale))#state{max = 'NaN'};
 
-scale(#state{} = S, Scale) ->
+scale(Scale, #state{} = S) ->
     S#state{min = S#state.min * Scale,
             max = S#state.max * Scale,
             sum = S#state.sum * Scale,
@@ -148,7 +148,7 @@ variance(#state { n = N }) when N < 2 ->
     'NaN';
 variance(State) ->
     SumSq = State#state.sum * State#state.sum,
-    (State#state.sum2 - (SumSq / State#state.n)) / (State#state.n - 1).
+    max(0.0, (State#state.sum2 - (SumSq / State#state.n)) / (State#state.n - 1)).
 
 
 sdev(State) ->
@@ -216,8 +216,15 @@ scale_test() ->
     Scaled = [Alpha * X || X <- Points],
     Sample = lists:foldl(fun update/2, new(), Points),
     Expected = tuple_to_list(summary(lists:foldl(fun update/2, new(), Scaled))),
-    Result = tuple_to_list(summary(scale(Sample, Alpha))),
+    Result = tuple_to_list(summary(scale(Alpha, Sample))),
     ?assert(lists_equal(Expected, Result)).
+
+negative_variance_test() ->
+    %% Float precision can lead variance becoming (a very small) negative number
+    Points = [100, 100, 100],
+    Alpha = 1/3,
+    Sample = scale(Alpha, lists:foldl(fun update/2, new(), Points)),
+    ?assert(variance(Sample) == 0).
 
 lists_equal([], []) ->
     true;
