@@ -107,16 +107,16 @@ merge(#state{} = A, #state{} = B) ->
            sum2 = A#state.sum2 + B#state.sum2}.
 
 
-scale(#state{min = 'NaN', max = 'NaN'} = S, Scale) ->
+scale(Scale, #state{min = 'NaN', max = 'NaN'} = S) ->
     (scale(S#state{min = 0, max = 0}, Scale))#state{min = 'NaN', max = 'NaN'};
 
-scale(#state{min = 'NaN'} = S, Scale) ->
+scale(Scale, #state{min = 'NaN'} = S) ->
     (scale(S#state{min = 0}, Scale))#state{min = 'NaN'};
 
-scale(#state{max = 'NaN'} = S, Scale) ->
+scale(Scale, #state{max = 'NaN'} = S) ->
     (scale(S#state{max = 0}, Scale))#state{max = 'NaN'};
 
-scale(#state{} = S, Scale) ->
+scale(Scale, #state{} = S) ->
     S#state{min = S#state.min * Scale,
             max = S#state.max * Scale,
             sum = S#state.sum * Scale,
@@ -216,7 +216,7 @@ scale_test() ->
     Scaled = [Alpha * X || X <- Points],
     Sample = lists:foldl(fun update/2, new(), Points),
     Expected = tuple_to_list(summary(lists:foldl(fun update/2, new(), Scaled))),
-    Result = tuple_to_list(summary(scale(Sample, Alpha))),
+    Result = tuple_to_list(summary(scale(Alpha, Sample))),
     ?assert(lists_equal(Expected, Result)).
 
 lists_equal([], []) ->
