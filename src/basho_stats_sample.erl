@@ -79,19 +79,26 @@ update_all_with_freq(Frequencies, State) ->
 
 
 to_struct(State) ->
-    {[{<<"n">>, State#state.n},
-      {<<"min">>, State#state.min},
-      {<<"max">>, State#state.max},
-      {<<"sum">>, State#state.sum},
-      {<<"sum2">>, State#state.sum2}
-     ]}.
+    {lists:zf(fun ({_, 0}) ->
+                     false;
+                  ({_, 'NaN'}) ->
+                      false;
+                 ({K, V}) ->
+                     {true, {K, V}}
+             end,
+              [{<<"n">>, State#state.n},
+               {<<"min">>, State#state.min},
+               {<<"max">>, State#state.max},
+               {<<"sum">>, State#state.sum},
+               {<<"sum2">>, State#state.sum2}])}.
+
 
 from_struct({S}) ->
-    N    = ensure_number(proplists:get_value(<<"n">>, S)),
-    Min  = ensure_number(proplists:get_value(<<"min">>, S)),
-    Max  = ensure_number(proplists:get_value(<<"max">>, S)),
-    Sum  = ensure_number(proplists:get_value(<<"sum">>, S)),
-    Sum2 = ensure_number(proplists:get_value(<<"sum2">>, S)),
+    N    = ensure_number(proplists:get_value(<<"n">>, S, 0)),
+    Min  = ensure_number(proplists:get_value(<<"min">>, S, <<"NaN">>)),
+    Max  = ensure_number(proplists:get_value(<<"max">>, S, <<"NaN">>)),
+    Sum  = ensure_number(proplists:get_value(<<"sum">>, S, 0)),
+    Sum2 = ensure_number(proplists:get_value(<<"sum2">>, S, 0)),
 
     #state{n    = N,
            min  = Min,
@@ -235,6 +242,13 @@ lists_equal([V1 | R1], [V2 | R2]) ->
         false ->
             false
     end.
+
+serialize_test() ->
+    ?assertEqual(new(),
+                 from_struct(to_struct(new()))),
+    ?assertEqual(update_all([1,2,3,4,5], new()),
+                 from_struct(to_struct(update_all([1,2,3,4,5], new())))).
+
 
 -ifdef(EQC).
 
