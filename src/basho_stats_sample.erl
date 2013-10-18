@@ -115,13 +115,13 @@ merge(#state{} = A, #state{} = B) ->
 
 
 scale(Scale, #state{min = 'NaN', max = 'NaN'} = S) ->
-    (scale(S#state{min = 0, max = 0}, Scale))#state{min = 'NaN', max = 'NaN'};
+    (scale(Scale, S#state{min = 0, max = 0}))#state{min = 'NaN', max = 'NaN'};
 
 scale(Scale, #state{min = 'NaN'} = S) ->
-    (scale(S#state{min = 0}, Scale))#state{min = 'NaN'};
+    (scale(Scale, S#state{min = 0}))#state{min = 'NaN'};
 
 scale(Scale, #state{max = 'NaN'} = S) ->
-    (scale(S#state{max = 0}, Scale))#state{max = 'NaN'};
+    (scale(Scale, S#state{max = 0}))#state{max = 'NaN'};
 
 scale(Scale, #state{} = S) ->
     S#state{min = S#state.min * Scale,
